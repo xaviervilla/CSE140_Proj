@@ -75,8 +75,7 @@ void Simulate () {
     
     /* Initialize the PC to the start of the code section */
     mips.pc = 0x00400000;
-    //while (1) {
-    for(int i = 0; i < 5; i++){ 
+    while (1) {
         if (mips.interactive) {
             printf ("> ");
             fgets (s,sizeof(s),stdin);
@@ -182,13 +181,56 @@ unsigned int Fetch ( int addr) {
 /* Decode instr, returning decoded instruction. */
 void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
     // instr currently contains the hex value of this instruction
-    //determine type
         //r: funct
         //i: 
         //j: address
-        printf("Hex opcode:%x\n", (0xfc000000 & instr) >> 26);
-        d->op = (0xfc000000 & instr) >> 26;
-        printf("d.op=%x\n", d->op);
+
+    // Compute mask of opcode and assign to d
+    if(instr == 0x0){ exit(0); }
+    d->op = (0xfc000000 & instr) >> 26;
+    printf("Opcode: %x\n", d->op);
+    // Determine type based on opcpde
+    switch (d->op){
+        case 0x0:
+            d->type = 0;
+            // find funct for R tyoes
+            d->regs.r.funct = 0x0000003f & instr;
+            break;
+        case 0x2:
+            d->type = 2;
+            // find target for J types
+            d->regs.j.target = (0x3ffffff & instr) << 2;
+            break;
+        case 0x3:
+            d->type = 2;
+            break;
+        case 0x9:
+            d->type = 1;
+        case 0xc:
+            d->type = 1;
+            break;
+        case 0xd:
+            d->type = 1;
+            break;
+        case 0xf:
+            d->type = 1;
+            break;
+        case 0x4:
+            d->type = 1;
+            break;
+        case 0x5:
+            d->type = 1;
+            break;
+        case 0x23:
+            d->type = 1;
+            break;
+        case 0x2b:
+            d->type = 1;
+            break;
+        default:
+            exit(0);
+    }
+
 
 }
 

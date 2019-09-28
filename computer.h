@@ -31,12 +31,12 @@ typedef struct {
 } JRegs;
 
 typedef struct {
-  InstrType type;
-  int op;
+  InstrType type;//done
+  int op;//done
   union {
-    RRegs r;
-    IRegs i;
-    JRegs j;
+    RRegs r; //funct done, needs shamt, and registers
+    IRegs i; //needs immediate and registers
+    JRegs j; //done
   } regs;
 } DecodedInstr;
 
