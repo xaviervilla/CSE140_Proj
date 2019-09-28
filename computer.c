@@ -75,7 +75,8 @@ void Simulate () {
     
     /* Initialize the PC to the start of the code section */
     mips.pc = 0x00400000;
-    while (1) {
+    //while (1) {
+    for(int i = 0; i < 5; i++){ 
         if (mips.interactive) {
             printf ("> ");
             fgets (s,sizeof(s),stdin);
@@ -180,7 +181,15 @@ unsigned int Fetch ( int addr) {
 
 /* Decode instr, returning decoded instruction. */
 void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
-    /* Your code goes here */
+    // instr currently contains the hex value of this instruction
+    //determine type
+        //r: funct
+        //i: 
+        //j: address
+        printf("Hex opcode:%x\n", (0xfc000000 & instr) >> 26);
+        d->op = (0xfc000000 & instr) >> 26;
+        printf("d.op=%x\n", d->op);
+
 }
 
 /*
