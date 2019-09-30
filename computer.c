@@ -193,39 +193,79 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
     switch (d->op){
         case 0x0:
             d->type = 0;
-            // find funct for R tyoes
-            d->regs.r.funct = 0x0000003f & instr;
+            // find funct, shamt, rs, rt, and rd for R types
+            d->regs.r.funct = (0x0000003f & instr);
+	    d->regs.r.rs = (0x03e00000 & instr);
+	    d->regs.r.rt = (0x001f0000 & instr);
+	    d->regs.r.rd = (0x0000f800 & instr);
+	    d->regs.r.shamt = (0x000007c0 & instr);
             break;
         case 0x2:
             d->type = 2;
-            // find target for J types
-            d->regs.j.target = (0x3ffffff & instr) << 2;
+            // find target for j
+            d->regs.j.target = (0x03ffffff & instr) << 2;
             break;
         case 0x3:
             d->type = 2;
+	    // find target for jal
+	    d->regs.j.target = (0x03ffffff & instr) << 2;
             break;
         case 0x9:
             d->type = 1;
+	    // find rs, rt, and immed for addiu
+	    d->regs.i.rs = (0x03e00000 & instr);
+	    d->regs.i.rt = (0x001f0000 & instr);
+	    d->regs.i.addr_or_immed = (0x0000ffff & instr);
         case 0xc:
             d->type = 1;
+	    // find rs, rt, and immed for andi
+	    d->regs.i.rs = (0x03e00000 & instr);
+	    d->regs.i.rt = (0x001f0000 & instr);
+	    d->regs.i.addr_or_immed = (0x0000ffff & instr);
             break;
         case 0xd:
             d->type = 1;
+	    // TEMPORARY UNTIL FIGURE OUT WHAT IS NEEDED FOR ORI
+	    // find rs, rt, and immed for ori
+	    d->regs.i.rs = (0x03e00000 & instr);
+	    d->regs.i.rt = (0x001f0000 & instr);
+	    d->regs.i.addr_or_immed = (0x0000ffff & instr);
             break;
         case 0xf:
             d->type = 1;
+	    // TEMPORARY UNTIL FIGURE OUT WHAT IS NEEDED FOR LUI
+	    // find rs, rt, and immed for lui
+	    d->regs.i.rs = (0x03e00000 & instr);
+	    d->regs.i.rt = (0x001f0000 & instr);
+	    d->regs.i.addr_or_immed = (0x0000ffff & instr);
             break;
         case 0x4:
             d->type = 1;
+	    // find rs, rt, and addr for beq
+	    d->regs.i.rs = (0x03e00000 & instr);
+	    d->regs.i.rt = (0x001f0000 & instr);
+	    d->regs.i.addr_or_immed = (0x0000ffff & instr);
             break;
         case 0x5:
             d->type = 1;
+	    // find rs, rt, and addr for bne
+	    d->regs.i.rs = (0x03e00000 & instr);
+	    d->regs.i.rt = (0x001f0000 & instr);
+	    d->regs.i.addr_or_immed = (0x0000ffff & instr);
             break;
         case 0x23:
             d->type = 1;
+	    // find rs, rt, and immed for lw
+	    d->regs.i.rs = (0x03e00000 & instr);
+	    d->regs.i.rt = (0x001f0000 & instr);
+	    d->regs.i.addr_or_immed = (0x0000ffff & instr);
             break;
         case 0x2b:
             d->type = 1;
+	    // find rs, rt, and immed for sw
+	    d->regs.i.rs = (0x03e00000 & instr);
+	    d->regs.i.rt = (0x001f0000 & instr);
+	    d->regs.i.addr_or_immed = (0x0000ffff & instr);
             break;
         default:
             exit(0);
@@ -240,6 +280,38 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
  */
 void PrintInstruction ( DecodedInstr* d) {
     /* Your code goes here */
+    switch (d->type){
+        case 0:
+            // Print for R types
+	    switch (d->regs.r.funct){
+		case 0x21: //addu
+		    break;
+		case 0x23: //subu
+		    break;
+		case 0x00: //sll
+		    break;
+		case 0x02: //srl
+		    break;
+		case 0x24: //and
+		    break;
+		case 0x25: //or
+		    break;
+		case 0x2a: //slt
+		    break;
+		case 0x08: //jr
+		    break;
+        	default:
+           	    exit(0);
+	    }
+            break;
+        case 1:
+            // Print for I types
+            break;
+        case 2:
+            // Print for J types
+            break;
+        default:
+            exit(0);
 }
 
 /* Perform computation needed to execute d, returning computed value */

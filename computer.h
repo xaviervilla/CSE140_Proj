@@ -34,8 +34,8 @@ typedef struct {
   InstrType type;//done
   int op;//done
   union {
-    RRegs r; //funct done, needs shamt, and registers
-    IRegs i; //needs immediate and registers
+    RRegs r; //done
+    IRegs i; //done
     JRegs j; //done
   } regs;
 } DecodedInstr;
