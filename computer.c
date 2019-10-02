@@ -19,6 +19,8 @@ void PrintInstruction (DecodedInstr*);
 Computer mips;
 RegVals rVals;
 
+int debug_decode = 1;
+
 /*
  *  Return an initialized computer with the stack pointer set to the
  *  address of the end of data memory, the remaining registers initialized
@@ -75,55 +77,110 @@ void Simulate () {
     
     /* Initialize the PC to the start of the code section */
     mips.pc = 0x00400000;
-    while (1) {
-        if (mips.interactive) {
-            printf ("> ");
-            fgets (s,sizeof(s),stdin);
-            if (s[0] == 'q') {
-                return;
+    if (debug_decode){
+        for (int i = 0; i < 10; i++){
+            if (mips.interactive) {
+                printf ("> ");
+                fgets (s,sizeof(s),stdin);
+                if (s[0] == 'q') {
+                    return;
+                }
             }
+
+            /* Fetch instr at mips.pc, returning it in instr */
+            instr = Fetch (mips.pc);
+
+            printf ("Executing instruction at %8.8x: %8.8x\n", mips.pc, instr);
+
+            /* 
+        * Decode instr, putting decoded instr in d
+        * Note that we reuse the d struct for each instruction.
+        */
+            Decode (instr, &d, &rVals);
+
+            /*Print decoded instruction*/
+            PrintInstruction(&d);
+
+            /* 
+        * Perform computation needed to execute d, returning computed value 
+        * in val 
+        */
+            val = Execute(&d, &rVals);
+
+        UpdatePC(&d,val);
+
+            /* 
+        * Perform memory load or store. Place the
+        * address of any updated memory in *changedMem, 
+        * otherwise put -1 in *changedMem. 
+        * Return any memory value that is read, otherwise return -1.
+            */
+            val = Mem(&d, val, &changedMem);
+
+            /* 
+        * Write back to register. If the instruction modified a register--
+        * (including jal, which modifies $ra) --
+            * put the index of the modified register in *changedReg,
+            * otherwise put -1 in *changedReg.
+            */
+            RegWrite(&d, val, &changedReg);
+
+            PrintInfo (changedReg, changedMem);
         }
-
-        /* Fetch instr at mips.pc, returning it in instr */
-        instr = Fetch (mips.pc);
-
-        printf ("Executing instruction at %8.8x: %8.8x\n", mips.pc, instr);
-
-        /* 
-	 * Decode instr, putting decoded instr in d
-	 * Note that we reuse the d struct for each instruction.
-	 */
-        Decode (instr, &d, &rVals);
-
-        /*Print decoded instruction*/
-        PrintInstruction(&d);
-
-        /* 
-	 * Perform computation needed to execute d, returning computed value 
-	 * in val 
-	 */
-        val = Execute(&d, &rVals);
-
-	UpdatePC(&d,val);
-
-        /* 
-	 * Perform memory load or store. Place the
-	 * address of any updated memory in *changedMem, 
-	 * otherwise put -1 in *changedMem. 
-	 * Return any memory value that is read, otherwise return -1.
-         */
-        val = Mem(&d, val, &changedMem);
-
-        /* 
-	 * Write back to register. If the instruction modified a register--
-	 * (including jal, which modifies $ra) --
-         * put the index of the modified register in *changedReg,
-         * otherwise put -1 in *changedReg.
-         */
-        RegWrite(&d, val, &changedReg);
-
-        PrintInfo (changedReg, changedMem);
     }
+    else{
+        while (1) {
+            // for (int i = 0; i < 10; i++){
+                if (mips.interactive) {
+                    printf ("> ");
+                    fgets (s,sizeof(s),stdin);
+                    if (s[0] == 'q') {
+                        return;
+                    }
+                }
+
+                /* Fetch instr at mips.pc, returning it in instr */
+                instr = Fetch (mips.pc);
+
+                printf ("Executing instruction at %8.8x: %8.8x\n", mips.pc, instr);
+
+                /* 
+            * Decode instr, putting decoded instr in d
+            * Note that we reuse the d struct for each instruction.
+            */
+                Decode (instr, &d, &rVals);
+
+                /*Print decoded instruction*/
+                PrintInstruction(&d);
+
+                /* 
+            * Perform computation needed to execute d, returning computed value 
+            * in val 
+            */
+                val = Execute(&d, &rVals);
+
+            UpdatePC(&d,val);
+
+                /* 
+            * Perform memory load or store. Place the
+            * address of any updated memory in *changedMem, 
+            * otherwise put -1 in *changedMem. 
+            * Return any memory value that is read, otherwise return -1.
+                */
+                val = Mem(&d, val, &changedMem);
+
+                /* 
+            * Write back to register. If the instruction modified a register--
+            * (including jal, which modifies $ra) --
+                * put the index of the modified register in *changedReg,
+                * otherwise put -1 in *changedReg.
+                */
+                RegWrite(&d, val, &changedReg);
+
+                PrintInfo (changedReg, changedMem);
+            }
+    }
+    
 }
 
 /*
@@ -180,95 +237,77 @@ unsigned int Fetch ( int addr) {
 
 /* Decode instr, returning decoded instruction. */
 void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
-    // instr currently contains the hex value of this instruction
-        //r: funct
-        //i: 
-        //j: address
 
     // Compute mask of opcode and assign to d
     if(instr == 0x0){ exit(0); }
     d->op = (0xfc000000 & instr) >> 26;
-    printf("Opcode: %x\n", d->op);
+
+    if(debug_decode){printf("Opcode: %x\n", d->op);}
+    
     // Determine type based on opcpde
     switch (d->op){
         case 0x0:
             d->type = 0;
-            // find funct, shamt, rs, rt, and rd for R types
-            d->regs.r.funct = (0x0000003f & instr);
-	    d->regs.r.rs = (0x03e00000 & instr);
-	    d->regs.r.rt = (0x001f0000 & instr);
-	    d->regs.r.rd = (0x0000f800 & instr);
-	    d->regs.r.shamt = (0x000007c0 & instr);
             break;
         case 0x2:
             d->type = 2;
-            // find target for j
-            d->regs.j.target = (0x03ffffff & instr) << 2;
             break;
         case 0x3:
             d->type = 2;
-	    // find target for jal
-	    d->regs.j.target = (0x03ffffff & instr) << 2;
             break;
         case 0x9:
             d->type = 1;
-	    // find rs, rt, and immed for addiu
-	    d->regs.i.rs = (0x03e00000 & instr);
-	    d->regs.i.rt = (0x001f0000 & instr);
-	    d->regs.i.addr_or_immed = (0x0000ffff & instr);
         case 0xc:
             d->type = 1;
-	    // find rs, rt, and immed for andi
-	    d->regs.i.rs = (0x03e00000 & instr);
-	    d->regs.i.rt = (0x001f0000 & instr);
-	    d->regs.i.addr_or_immed = (0x0000ffff & instr);
             break;
         case 0xd:
             d->type = 1;
-	    // TEMPORARY UNTIL FIGURE OUT WHAT IS NEEDED FOR ORI
-	    // find rs, rt, and immed for ori
-	    d->regs.i.rs = (0x03e00000 & instr);
-	    d->regs.i.rt = (0x001f0000 & instr);
-	    d->regs.i.addr_or_immed = (0x0000ffff & instr);
             break;
         case 0xf:
             d->type = 1;
-	    // TEMPORARY UNTIL FIGURE OUT WHAT IS NEEDED FOR LUI
-	    // find rs, rt, and immed for lui
-	    d->regs.i.rs = (0x03e00000 & instr);
-	    d->regs.i.rt = (0x001f0000 & instr);
-	    d->regs.i.addr_or_immed = (0x0000ffff & instr);
             break;
         case 0x4:
             d->type = 1;
-	    // find rs, rt, and addr for beq
-	    d->regs.i.rs = (0x03e00000 & instr);
-	    d->regs.i.rt = (0x001f0000 & instr);
-	    d->regs.i.addr_or_immed = (0x0000ffff & instr);
             break;
         case 0x5:
             d->type = 1;
-	    // find rs, rt, and addr for bne
-	    d->regs.i.rs = (0x03e00000 & instr);
-	    d->regs.i.rt = (0x001f0000 & instr);
-	    d->regs.i.addr_or_immed = (0x0000ffff & instr);
             break;
         case 0x23:
             d->type = 1;
-	    // find rs, rt, and immed for lw
-	    d->regs.i.rs = (0x03e00000 & instr);
-	    d->regs.i.rt = (0x001f0000 & instr);
-	    d->regs.i.addr_or_immed = (0x0000ffff & instr);
             break;
         case 0x2b:
             d->type = 1;
-	    // find rs, rt, and immed for sw
-	    d->regs.i.rs = (0x03e00000 & instr);
-	    d->regs.i.rt = (0x001f0000 & instr);
-	    d->regs.i.addr_or_immed = (0x0000ffff & instr);
             break;
         default:
-            exit(0);
+            if(debug_decode){ printf("exiting!\n"); }
+            else{ exit(0); }
+    }
+
+    // decode based on type
+    switch(d->type){
+        case 0:
+            d->regs.r.funct = (0x0000003f & instr);
+            d->regs.r.rs = (0x03e00000 & instr) >> 21;
+            d->regs.r.rt = (0x001f0000 & instr) >> 16;
+            d->regs.r.rd = (0x0000f800 & instr) >> 11;
+            d->regs.r.shamt = (0x000007c0 & instr) >> 6;
+            break;
+        case 1:
+            d->regs.i.rs = (0x03e00000 & instr) >> 21;
+            d->regs.i.rt = (0x001f0000 & instr) >> 16;
+            d->regs.i.addr_or_immed = (0x0000ffff & instr);
+            // Do sign extension if immed is neg
+            if( d->regs.i.addr_or_immed & 0x00008000 ){
+                d->regs.i.addr_or_immed = d->regs.i.addr_or_immed + 0xffff0000;
+            }
+            if(debug_decode) {printf("d->regs.i.addr_or_immed: %i\n", d->regs.i.addr_or_immed); }
+            break;
+        case 2:
+    	    d->regs.j.target = (0x03ffffff & instr) << 2;
+            break;
+        default:
+            if(debug_decode){ printf("Exiting!\n"); }
+            else{ exit(0); }
     }
 
 
@@ -284,26 +323,31 @@ void PrintInstruction ( DecodedInstr* d) {
         case 0:
             // Print for R types
 	    switch (d->regs.r.funct){
-		case 0x21: //addu
-		    break;
-		case 0x23: //subu
-		    break;
-		case 0x00: //sll
-		    break;
-		case 0x02: //srl
-		    break;
-		case 0x24: //and
-		    break;
-		case 0x25: //or
-		    break;
-		case 0x2a: //slt
-		    break;
-		case 0x08: //jr
-		    break;
-        	default:
-           	    exit(0);
+            case 0x21: //addu
+                break;
+            case 0x23: //subu
+                break;
+            case 0x00: //sll
+                break;
+            case 0x02: //srl
+                break;
+            case 0x24: //and
+                break;
+            case 0x25: //or
+                break;
+            case 0x2a: //slt
+                break;
+            case 0x08: //jr
+                break;
+                default:
+                    if(debug_decode){
+                        printf("exiting!\n");
+                    }
+                    else{
+                        exit(0);
+                    }
 	    }
-            break;
+        break;
         case 1:
             // Print for I types
             break;
@@ -311,7 +355,13 @@ void PrintInstruction ( DecodedInstr* d) {
             // Print for J types
             break;
         default:
-            exit(0);
+            if(debug_decode){
+                printf("exiting!\n");
+            }
+            else{
+                exit(0);
+            }
+    }
 }
 
 /* Perform computation needed to execute d, returning computed value */
