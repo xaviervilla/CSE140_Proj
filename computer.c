@@ -291,6 +291,10 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
             d->regs.r.rt = (0x001f0000 & instr) >> 16;
             d->regs.r.rd = (0x0000f800 & instr) >> 11;
             d->regs.r.shamt = (0x000007c0 & instr) >> 6;
+            // Update Rvals stuff
+            rVals->R_rs = mips.registers[d->regs.r.rs];
+            rVals->R_rt = mips.registers[d->regs.r.rt];
+            rVals->R_rd = mips.registers[d->regs.r.rd];
             break;
         case 1: //i
             d->regs.i.rs = (0x03e00000 & instr) >> 21;
@@ -301,6 +305,9 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
                 d->regs.i.addr_or_immed = d->regs.i.addr_or_immed + 0xffff0000;
             }
             if(debug_decode) {printf("d->regs.i.addr_or_immed: %i\n", d->regs.i.addr_or_immed); }
+            // Update rVals
+            rVals->R_rs = mips.registers[d->regs.r.rs];
+            rVals->R_rt = mips.registers[d->regs.r.rt];
             break;
         case 2: //j
     	    d->regs.j.target = (0x03ffffff & instr) << 2;
@@ -399,7 +406,46 @@ void PrintInstruction ( DecodedInstr* d) {
 
 /* Perform computation needed to execute d, returning computed value */
 int Execute ( DecodedInstr* d, RegVals* rVals) {
-    /* Your code goes here */
+
+    switch(d->type){
+        case 0: //r
+            if(d->regs.r.funct == 0x21){ // addu
+                rVals->R_rd = rVals->R_rs + rVals->R_rt;
+                return -1; // pc+=4
+            }
+            else if(d->regs.r.funct == 0x23){ // subu
+
+            }
+            else if(d->regs.r.funct == 0x0){ // sll
+
+            }
+            else if(d->regs.r.funct == 0x2){ // srl
+
+            }
+            else if(d->regs.r.funct == 0x24){ // and
+
+            }
+            else if(d->regs.r.funct == 0x25){ // or
+
+            }
+            else if(d->regs.r.funct == 0x2a){ // slt
+
+            }
+            else if(d->regs.r.funct == 0x8){ //jr
+
+            }
+            break;
+        case 1: //i
+            if(d->op == 0x9){ // addiu
+                rVals->R_rt = rVals->R_rs + d->regs.i.addr_or_immed;
+                printf("addiDebugging: %i\n", rVals->R_rt);
+                return -1; // pc+=4
+            }
+            break;
+        case 2: //j    
+            break;
+    }
+
   return 0;
 }
 
@@ -410,7 +456,13 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
  */
 void UpdatePC ( DecodedInstr* d, int val) {
     mips.pc+=4;
+    //if (d->type == 2)//jump
+
+
     /* Your code goes here */
+    // if(val!=-1){
+    //     mips.pc+=val*4;
+    // }
 }
 
 /*
