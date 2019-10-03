@@ -19,7 +19,7 @@ void PrintInstruction (DecodedInstr*);
 Computer mips;
 RegVals rVals;
 
-int debug_decode = 0;
+int debug_decode = 1;
 
 /*
  *  Return an initialized computer with the stack pointer set to the
@@ -300,7 +300,6 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
             if( d->regs.i.addr_or_immed & 0x00008000 ){
                 d->regs.i.addr_or_immed = d->regs.i.addr_or_immed + 0xffff0000;
             }
-            if (d->op == 0x4 || d->op == 0x5){ d->regs.i.addr_or_immed = 4*(d->regs.i.addr_or_immed+1) + mips.pc; }
             if(debug_decode) {printf("d->regs.i.addr_or_immed: %i\n", d->regs.i.addr_or_immed); }
             break;
         case 2: //j
@@ -319,7 +318,6 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
  *  followed by a newline.
  */
 void PrintInstruction ( DecodedInstr* d) {
-    /* Your code goes here */
     switch (d->type){
         case 0:
             // Print for R types
@@ -369,10 +367,10 @@ void PrintInstruction ( DecodedInstr* d) {
                 printf("lui\t$%i, 0x%04x\n", d->regs.i.rt, d->regs.i.addr_or_immed);
                 break;
             case 0x4:
-                printf("beq\t$%i, $%i, 0x%08x\n", d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
+                printf("beq\t$%i, $%i, 0x%08x\n", d->regs.i.rs, d->regs.i.rt, 4*(d->regs.i.addr_or_immed+1) + mips.pc);
                 break;
             case 0x5:
-                printf("bne\t$%i, $%i, 0x%08x\n", d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
+                printf("bne\t$%i, $%i, 0x%08x\n", d->regs.i.rs, d->regs.i.rt, 4*(d->regs.i.addr_or_immed+1) + mips.pc);
                 break;
             case 0x23:
                 printf("lw\t$%i, %i($%i)\n", d->regs.i.rt, d->regs.i.addr_or_immed, d->regs.i.rs);
