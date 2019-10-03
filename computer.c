@@ -19,7 +19,7 @@ void PrintInstruction (DecodedInstr*);
 Computer mips;
 RegVals rVals;
 
-int debug_decode = 1;
+int debug_decode = 0;
 
 /*
  *  Return an initialized computer with the stack pointer set to the
@@ -285,14 +285,14 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
 
     // decode based on type
     switch(d->type){
-        case 0:
+        case 0: //r
             d->regs.r.funct = (0x0000003f & instr);
             d->regs.r.rs = (0x03e00000 & instr) >> 21;
             d->regs.r.rt = (0x001f0000 & instr) >> 16;
             d->regs.r.rd = (0x0000f800 & instr) >> 11;
             d->regs.r.shamt = (0x000007c0 & instr) >> 6;
             break;
-        case 1:
+        case 1: //i
             d->regs.i.rs = (0x03e00000 & instr) >> 21;
             d->regs.i.rt = (0x001f0000 & instr) >> 16;
             d->regs.i.addr_or_immed = (0x0000ffff & instr);
@@ -300,9 +300,10 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
             if( d->regs.i.addr_or_immed & 0x00008000 ){
                 d->regs.i.addr_or_immed = d->regs.i.addr_or_immed + 0xffff0000;
             }
+            if (d->op == 0x4 || d->op == 0x5){ d->regs.i.addr_or_immed = 4*(d->regs.i.addr_or_immed+1) + mips.pc; }
             if(debug_decode) {printf("d->regs.i.addr_or_immed: %i\n", d->regs.i.addr_or_immed); }
             break;
-        case 2:
+        case 2: //j
     	    d->regs.j.target = (0x03ffffff & instr) << 2;
             break;
         default:
@@ -324,43 +325,77 @@ void PrintInstruction ( DecodedInstr* d) {
             // Print for R types
 	    switch (d->regs.r.funct){
             case 0x21: //addu
+                printf("addu\t$%i, $%i, $%i\n", d->regs.r.rd, d->regs.r.rs, d->regs.r.rt);
                 break;
             case 0x23: //subu
+                printf("subu\t$%i, $%i, $%i\n", d->regs.r.rd, d->regs.r.rs, d->regs.r.rt);
                 break;
             case 0x00: //sll
+                printf("sll\t$%i, $%i, %i\n", d->regs.r.rd, d->regs.r.rt, d->regs.r.shamt);
                 break;
             case 0x02: //srl
+                printf("srl\t$%i, $%i, %i\n", d->regs.r.rd, d->regs.r.rt, d->regs.r.shamt);
                 break;
             case 0x24: //and
+                printf("and\t$%i, $%i, $%i\n", d->regs.r.rd, d->regs.r.rs, d->regs.r.rt);
                 break;
             case 0x25: //or
+                printf("or\t$%i, $%i, $%i\n", d->regs.r.rd, d->regs.r.rs, d->regs.r.rt);
                 break;
             case 0x2a: //slt
+                printf("slt\t$%i, $%i, $%i\n", d->regs.r.rd, d->regs.r.rs, d->regs.r.rt);
                 break;
             case 0x08: //jr
+                printf("jr\t$%i\n", d->regs.r.rs);
                 break;
                 default:
-                    if(debug_decode){
-                        printf("exiting!\n");
-                    }
-                    else{
-                        exit(0);
-                    }
-	    }
-        break;
+                    if(debug_decode){ printf("exiting!\n"); }
+                    else{ exit(0); }
+	        }
+            break;
         case 1:
             // Print for I types
+            switch (d->op){
+            case 0x9:
+                printf("addiu\t$%i, $%i, %i\n", d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
+                break;
+            case 0xc:
+                printf("andi\t$%i, $%i, 0x%04x\n", d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
+                break;
+            case 0xd:
+                printf("ori\t$%i, $%i, 0x%04x\n", d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
+                break;
+            case 0xf:
+                printf("lui\t$%i, 0x%04x\n", d->regs.i.rt, d->regs.i.addr_or_immed);
+                break;
+            case 0x4:
+                printf("beq\t$%i, $%i, 0x%08x\n", d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
+                break;
+            case 0x5:
+                printf("bne\t$%i, $%i, 0x%08x\n", d->regs.i.rt, d->regs.i.rs, d->regs.i.addr_or_immed);
+                break;
+            case 0x23:
+                printf("lw\t$%i, %i($%i)\n", d->regs.i.rt, d->regs.i.addr_or_immed, d->regs.i.rs);
+                break;
+            case 0x2b:
+                printf("sw\t$%i, %i($%i)\n", d->regs.i.rt, d->regs.i.addr_or_immed, d->regs.i.rs);
+                break;
+        }
             break;
         case 2:
             // Print for J types
+            switch (d->op){
+                case 0x2: //j
+                printf("j\t0x%08x\n", d->regs.r.rs);
+                break;
+                case 0x3: //jal
+                printf("jal\t0x%08x\n", d->regs.r.rs);
+                break;
+            }
             break;
         default:
-            if(debug_decode){
-                printf("exiting!\n");
-            }
-            else{
-                exit(0);
-            }
+            if(debug_decode){ printf("exiting!\n"); }
+            else{ exit(0); }
     }
 }
 
