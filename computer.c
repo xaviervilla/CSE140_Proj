@@ -469,6 +469,7 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
 void UpdatePC ( DecodedInstr* d, int val) {
     mips.pc+=4;
     //if (d->type == 2)//jump
+    if (val == -1){ return; }
 
 
     /* Your code goes here */
@@ -476,6 +477,7 @@ void UpdatePC ( DecodedInstr* d, int val) {
         mips.pc = val;
     }
     else if(d->type == 2 || ( (d->type == 1) && (d->op == 0x4 || d->op == 0x5)) ){ // j type, beq, bne
+        printf("newPCCCCCC BEQ:%x\n", val+mips.pc);
         mips.pc+=val;
     }
 }
