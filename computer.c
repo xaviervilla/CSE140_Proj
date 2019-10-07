@@ -519,17 +519,26 @@ void RegWrite( DecodedInstr* d, int val, int *changedReg) {
             mips.registers[d->regs.r.rd] = val;
             *changedReg = d->regs.r.rd;
         }
+        else{
+            *changedReg=-1;
+        }
     }
     else if (d->type == 1){ // i type
         if(d->op != 0x4 || d->op != 0x5){
             mips.registers[d->regs.i.rt] = val;
             *changedReg = d->regs.i.rt;
         }
+        else{
+            *changedReg=-1;
+        }
     }
     else if (d->type == 2){ // j type
         if(d->op == 0x3){ // jal
-            mips.registers[31] = mips.pc-4;
+            mips.registers[31] = mips.pc;
             *changedReg = 31;
+        }
+        else{
+            *changedReg=-1;
         }
     }
 }
