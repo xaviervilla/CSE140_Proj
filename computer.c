@@ -19,7 +19,7 @@ void PrintInstruction (DecodedInstr*);
 Computer mips;
 RegVals rVals;
 
-int debug_decode = 1;
+int debug_decode = 0;
 
 /*
  *  Return an initialized computer with the stack pointer set to the
@@ -239,7 +239,7 @@ unsigned int Fetch ( int addr) {
 void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
 
     // Compute mask of opcode and assign to d
-    if(instr == 0x0){ exit(0); }
+    if(instr == 0x0){ exit(0);}
     d->op = (0xfc000000 & instr) >> 26;
 
     if(debug_decode){printf("Opcode: %x\n", d->op);}
@@ -280,7 +280,7 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
             break;
         default:
             if(debug_decode){ printf("exiting!\n"); }
-            else{ exit(0); }
+            else{ printf("Addi not supported!\n"); exit(0); }
     }
 
     // decode based on type
@@ -310,7 +310,7 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
             rVals->R_rt = mips.registers[d->regs.r.rt];
             break;
         case 2: //j
-    	    d->regs.j.target = (0x03ffffff & instr) << 2;
+    	    d->regs.j.target = ((0x03ffffff & instr) << 2) - mips.pc -4;
             break;
         default:
             if(debug_decode){ printf("Exiting!\n"); }
@@ -391,15 +391,16 @@ void PrintInstruction ( DecodedInstr* d) {
             // Print for J types
             switch (d->op){
                 case 0x2: //j
-                printf("j\t0x%08x\n", d->regs.r.rs);
+                printf("j\t0x%08x\n", d->regs.j.target + mips.pc +4);
                 break;
                 case 0x3: //jal
-                printf("jal\t0x%08x\n", d->regs.r.rs);
+                printf("jal\t0x%08x\n", d->regs.j.target + mips.pc +4);
                 break;
             }
             break;
         default:
             if(debug_decode){ printf("exiting!\n"); }
+            
             else{ exit(0); }
     }
 }
@@ -411,10 +412,11 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
         case 0: //r
             if(d->regs.r.funct == 0x21){ // addu
                 rVals->R_rd = rVals->R_rs + rVals->R_rt;
-                return -1; // pc+=4
+                return rVals->R_rd; 
             }
             else if(d->regs.r.funct == 0x23){ // subu
-
+                rVals->R_rd = rVals->R_rs - rVals->R_rt;
+                return rVals->R_rd; 
             }
             else if(d->regs.r.funct == 0x0){ // sll
 
@@ -432,21 +434,31 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
 
             }
             else if(d->regs.r.funct == 0x8){ //jr
-
+                return rVals->R_rs;
             }
             break;
         case 1: //i
             if(d->op == 0x9){ // addiu
                 rVals->R_rt = rVals->R_rs + d->regs.i.addr_or_immed;
-                printf("addiDebugging: %i\n", rVals->R_rt);
-                return -1; // pc+=4
+                return rVals->R_rt; // pc+=4
+            }
+            else if(d->op == 0x4){ // beq
+                if(rVals->R_rs == rVals->R_rt){
+                    return 4*(d->regs.i.addr_or_immed+1);
+                }
+            }
+            else if(d->op == 0x5){ // bne
+               if(rVals->R_rs != rVals->R_rt){
+                    return 4*d->regs.i.addr_or_immed;
+                }
             }
             break;
-        case 2: //j    
+        case 2: //j 
+            return d->regs.j.target; // works for j and jal
             break;
     }
 
-  return 0;
+    return -1;
 }
 
 /* 
@@ -460,9 +472,12 @@ void UpdatePC ( DecodedInstr* d, int val) {
 
 
     /* Your code goes here */
-    // if(val!=-1){
-    //     mips.pc+=val*4;
-    // }
+    if(d->type == 0 && d->regs.r.funct == 0x8){
+        mips.pc = val;
+    }
+    else if(d->type == 2 || ( (d->type == 1) && (d->op == 0x4 || d->op == 0x5)) ){ // j type, beq, bne
+        mips.pc+=val;
+    }
 }
 
 /*
@@ -477,7 +492,16 @@ void UpdatePC ( DecodedInstr* d, int val) {
  */
 int Mem( DecodedInstr* d, int val, int *changedMem) {
     /* Your code goes here */
-  return 0;
+    if(d->type == 1 && d->op == 0x2b){ //store word
+        mips.memory[d->regs.i.rs + d->regs.i.addr_or_immed] = mips.registers[d->regs.i.rt];
+        *changedMem = d->regs.i.rs + d->regs.i.addr_or_immed;
+    }
+    else if (d->type == 1 && d->op == 0x23){
+        mips.registers[d->regs.i.rt] = mips.memory[d->regs.i.rs + d->regs.i.addr_or_immed];
+        *changedMem = -1;
+        // return mips.memory[d->regs.i.rs + d->regs.i.addr_or_immed];
+    }
+    return val;
 }
 
 /* 
@@ -488,4 +512,22 @@ int Mem( DecodedInstr* d, int val, int *changedMem) {
  */
 void RegWrite( DecodedInstr* d, int val, int *changedReg) {
     /* Your code goes here */
+    if(d->type == 0){ // r type
+        if(d->regs.r.funct != 0x8){
+            mips.registers[d->regs.r.rd] = val;
+            *changedReg = d->regs.r.rd;
+        }
+    }
+    else if (d->type == 1){ // i type
+        if(d->op != 0x4 || d->op != 0x5){
+            mips.registers[d->regs.i.rt] = val;
+            *changedReg = d->regs.i.rt;
+        }
+    }
+    else if (d->type == 2){ // j type
+        if(d->op == 0x3){ // jal
+            mips.registers[31] = mips.pc-4;
+            *changedReg = 31;
+        }
+    }
 }
