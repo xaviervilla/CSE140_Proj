@@ -280,7 +280,7 @@ void Decode ( unsigned int instr, DecodedInstr* d, RegVals* rVals) {
             break;
         default:
             if(debug_decode){ printf("exiting!\n"); }
-            else{ printf("Addi not supported!\n"); exit(0); }
+            else{ exit(0); }
     }
 
     // decode based on type
@@ -476,9 +476,11 @@ void UpdatePC ( DecodedInstr* d, int val) {
     if(d->type == 0 && d->regs.r.funct == 0x8){
         mips.pc = val;
     }
-    else if(d->type == 2 || ( (d->type == 1) && (d->op == 0x4 || d->op == 0x5)) ){ // j type, beq, bne
-        printf("newPCCCCCC BEQ:%x\n", val+mips.pc);
+    else if(d->type == 2){ // j type, beq, bne
         mips.pc+=val;
+    }
+    else if( (d->type == 1) && (d->op == 0x4 || d->op == 0x5)){
+        mips.pc+=val-4;
     }
 }
 
@@ -524,7 +526,7 @@ void RegWrite( DecodedInstr* d, int val, int *changedReg) {
         }
     }
     else if (d->type == 1){ // i type
-        if(d->op != 0x4 || d->op != 0x5){
+        if(d->op != 0x4 && d->op != 0x5){
             mips.registers[d->regs.i.rt] = val;
             *changedReg = d->regs.i.rt;
         }
@@ -534,7 +536,7 @@ void RegWrite( DecodedInstr* d, int val, int *changedReg) {
     }
     else if (d->type == 2){ // j type
         if(d->op == 0x3){ // jal
-            mips.registers[31] = mips.pc;
+            mips.registers[31] = mips.pc-4;
             *changedReg = 31;
         }
         else{
