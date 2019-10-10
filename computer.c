@@ -77,8 +77,7 @@ void Simulate () {
     
     /* Initialize the PC to the start of the code section */
     mips.pc = 0x00400000;
-    if (debug_decode){
-        for (int i = 0; i < 10; i++){
+    while (1) {
             if (mips.interactive) {
                 printf ("> ");
                 fgets (s,sizeof(s),stdin);
@@ -126,59 +125,6 @@ void Simulate () {
             RegWrite(&d, val, &changedReg);
 
             PrintInfo (changedReg, changedMem);
-        }
-    }
-    else{
-        while (1) {
-            // for (int i = 0; i < 10; i++){
-                if (mips.interactive) {
-                    printf ("> ");
-                    fgets (s,sizeof(s),stdin);
-                    if (s[0] == 'q') {
-                        return;
-                    }
-                }
-
-                /* Fetch instr at mips.pc, returning it in instr */
-                instr = Fetch (mips.pc);
-
-                printf ("Executing instruction at %8.8x: %8.8x\n", mips.pc, instr);
-
-                /* 
-            * Decode instr, putting decoded instr in d
-            * Note that we reuse the d struct for each instruction.
-            */
-                Decode (instr, &d, &rVals);
-
-                /*Print decoded instruction*/
-                PrintInstruction(&d);
-
-                /* 
-            * Perform computation needed to execute d, returning computed value 
-            * in val 
-            */
-                val = Execute(&d, &rVals);
-
-            UpdatePC(&d,val);
-
-                /* 
-            * Perform memory load or store. Place the
-            * address of any updated memory in *changedMem, 
-            * otherwise put -1 in *changedMem. 
-            * Return any memory value that is read, otherwise return -1.
-                */
-                val = Mem(&d, val, &changedMem);
-
-                /* 
-            * Write back to register. If the instruction modified a register--
-            * (including jal, which modifies $ra) --
-                * put the index of the modified register in *changedReg,
-                * otherwise put -1 in *changedReg.
-                */
-                RegWrite(&d, val, &changedReg);
-
-                PrintInfo (changedReg, changedMem);
-            }
     }
     
 }
@@ -419,19 +365,25 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
                 return rVals->R_rd; 
             }
             else if(d->regs.r.funct == 0x0){ // sll
-
+                rVals->R_rd = (rVals->R_rt << d->regs.r.shamt);
+                return rVals->R_rd; 
             }
             else if(d->regs.r.funct == 0x2){ // srl
-
+                rVals->R_rd = (rVals->R_rt >> d->regs.r.shamt);
+                return rVals->R_rd; 
             }
             else if(d->regs.r.funct == 0x24){ // and
-
+                rVals->R_rd = (rVals->R_rs & rVals->R_rt);
+                return rVals->R_rd; 
             }
             else if(d->regs.r.funct == 0x25){ // or
-
+                rVals->R_rd = (rVals->R_rs | rVals->R_rt);
+                return rVals->R_rd; 
             }
             else if(d->regs.r.funct == 0x2a){ // slt
-
+                if (rVals->R_rs < rVals->R_rt){ rVals->R_rd = 1; }
+                else{ rVals->R_rd = 0; }
+                return rVals->R_rd; 
             }
             else if(d->regs.r.funct == 0x8){ //jr
                 return rVals->R_rs;
@@ -440,17 +392,36 @@ int Execute ( DecodedInstr* d, RegVals* rVals) {
         case 1: //i
             if(d->op == 0x9){ // addiu
                 rVals->R_rt = rVals->R_rs + d->regs.i.addr_or_immed;
-                return rVals->R_rt; // pc+=4
+                return rVals->R_rt;
             }
             else if(d->op == 0x4){ // beq
                 if(rVals->R_rs == rVals->R_rt){
-                    return 4*(d->regs.i.addr_or_immed+1);
+                    return 4*(d->regs.i.addr_or_immed);
                 }
             }
             else if(d->op == 0x5){ // bne
                if(rVals->R_rs != rVals->R_rt){
                     return 4*d->regs.i.addr_or_immed;
                 }
+            }
+            else if(d->op == 0xc){ // andi
+                rVals->R_rt = (rVals->R_rs & d->regs.i.addr_or_immed);
+                return rVals->R_rt;
+            }
+            else if(d->op == 0xd){ // ori
+                rVals->R_rt = (rVals->R_rs | d->regs.i.addr_or_immed);
+                return rVals->R_rt;
+            }
+            else if(d->op == 0xf){ // lui
+                rVals->R_rt = (d->regs.i.addr_or_immed<<16);
+                return rVals->R_rt;
+            }
+            else if(d->op == 0x23){ // lw (Write to register)
+                // return the address
+                return rVals->R_rs+(d->regs.i.addr_or_immed);
+            }
+            else if(d->op == 0x2b){ // sw (Writes to main memory)
+                return rVals->R_rs+(d->regs.i.addr_or_immed);
             }
             break;
         case 2: //j 
@@ -470,8 +441,6 @@ void UpdatePC ( DecodedInstr* d, int val) {
     mips.pc+=4;
     //if (d->type == 2)//jump
     if (val == -1){ return; }
-
-
     /* Your code goes here */
     if(d->type == 0 && d->regs.r.funct == 0x8){
         mips.pc = val;
@@ -480,7 +449,7 @@ void UpdatePC ( DecodedInstr* d, int val) {
         mips.pc+=val;
     }
     else if( (d->type == 1) && (d->op == 0x4 || d->op == 0x5)){
-        mips.pc+=val-4;
+        mips.pc+=val;
     }
 }
 
@@ -495,15 +464,18 @@ void UpdatePC ( DecodedInstr* d, int val) {
  *
  */
 int Mem( DecodedInstr* d, int val, int *changedMem) {
+
     /* Your code goes here */
     if(d->type == 1 && d->op == 0x2b){ //store word
-        mips.memory[d->regs.i.rs + d->regs.i.addr_or_immed] = mips.registers[d->regs.i.rt];
-        *changedMem = d->regs.i.rs + d->regs.i.addr_or_immed;
+        *changedMem = val;
+        mips.memory[(val-0x00400000)/4] = mips.registers[d->regs.i.rt];
     }
-    else if (d->type == 1 && d->op == 0x23){
-        mips.registers[d->regs.i.rt] = mips.memory[d->regs.i.rs + d->regs.i.addr_or_immed];
+    else if (d->type == 1 && d->op == 0x23){ //load word loads from memory
+        val = mips.memory[(val-0x00400000)/4];
         *changedMem = -1;
-        // return mips.memory[d->regs.i.rs + d->regs.i.addr_or_immed];
+    }
+    else {
+        *changedMem = -1;
     }
     return val;
 }
@@ -517,7 +489,7 @@ int Mem( DecodedInstr* d, int val, int *changedMem) {
 void RegWrite( DecodedInstr* d, int val, int *changedReg) {
     /* Your code goes here */
     if(d->type == 0){ // r type
-        if(d->regs.r.funct != 0x8){
+        if(d->regs.r.funct != 0x8){ // all except jr
             mips.registers[d->regs.r.rd] = val;
             *changedReg = d->regs.r.rd;
         }
@@ -526,7 +498,7 @@ void RegWrite( DecodedInstr* d, int val, int *changedReg) {
         }
     }
     else if (d->type == 1){ // i type
-        if(d->op != 0x4 && d->op != 0x5){
+        if(d->op != 0x4 && d->op != 0x5 && d->op != 0x2b){ // all i types except sw, bne, beq
             mips.registers[d->regs.i.rt] = val;
             *changedReg = d->regs.i.rt;
         }
@@ -542,5 +514,8 @@ void RegWrite( DecodedInstr* d, int val, int *changedReg) {
         else{
             *changedReg=-1;
         }
+    }
+    else{
+        return;
     }
 }
