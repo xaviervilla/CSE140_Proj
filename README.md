@@ -7,3 +7,6 @@ creating what is effectively a miniature version of MARS! There is one important
 though—MARS takes in assembly language source files, not 
 .dump files, so it contains an 
 assembler, too.  
+
+#### Collaborators:
+Jacob Frederick and Xavier Villa
